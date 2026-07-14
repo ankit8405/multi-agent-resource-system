@@ -5,10 +5,8 @@ from backend.prompts import PLANNER_PROMPT
 from backend.services.openai_service import get_structured_llm
 
 
-planner_llm = get_structured_llm(PlannerOutput)
-
-
 async def planner_agent(state: ResearchState) -> ResearchState:
+    planner_llm = get_structured_llm(PlannerOutput)
     logger.info("Planner Agent | Started")
 
     try:

@@ -5,10 +5,8 @@ from backend.prompts import FACT_CHECK_PROMPT
 from backend.services.openai_service import get_structured_llm
 
 
-fact_checker_llm = get_structured_llm(FactCheckOutput)
-
-
 async def fact_checker_agent(state: ResearchState) -> ResearchState:
+    fact_checker_llm = get_structured_llm(FactCheckOutput)
     logger.info("Fact Checker Agent | Started")
 
     try:

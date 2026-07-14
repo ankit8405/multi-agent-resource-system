@@ -4,10 +4,8 @@ from backend.prompts import WRITER_PROMPT
 from backend.services.openai_service import get_llm
 
 
-writer_llm = get_llm()
-
-
 async def writer_agent(state: ResearchState) -> ResearchState:
+    writer_llm = get_llm()
     logger.info("Writer Agent | Started")
 
     try:
