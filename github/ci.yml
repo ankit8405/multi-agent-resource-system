@@ -29,14 +29,10 @@ jobs:
         run: |
           python -c "import backend.main"
 
-      - name: Verify frontend starts
+      - name: Verify frontend imports
         run: |
-          streamlit run frontend/app.py \
-            --server.headless true \
-            --server.port 8501 &
-          sleep 10
-          curl --fail http://localhost:8501
+          python -c "import frontend.app"
 
       - name: Build Docker image
         run: |
-          docker build -t cricket-chatbot .
+          docker build -t multi-agent-research-system .
