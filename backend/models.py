@@ -1,5 +1,6 @@
-from typing import List, Literal
+from __future__ import annotations
 from pydantic import BaseModel, Field
+from backend.constants import Action, Provider, ComparisonStrategy
 
 class ResearchRequest(BaseModel):
     query: str = Field(..., description="Research query provided by the user")
@@ -8,43 +9,41 @@ class ResearchRequest(BaseModel):
     conversation_summary: str = ""
 
 class PlannerOutput(BaseModel):
-    action: Literal[
-        "new_research",
-        "follow_up",
-        "compare",
-        "elaborate",
-        "rewrite",
-        "summarize",
-        "optimize",
-    ]
+    action: Action
     objective: str
-    research_topics: list[str]
     search_queries: list[str]
-    needs_web_search: bool
-    needs_academic_search: bool
-    needs_news_search: bool
+    providers: list[Provider]
+    comparison_strategy: ComparisonStrategy
     requires_fact_check: bool
-
-class ResearchPlan(BaseModel):
-    needs_web_search: bool
-    needs_academic_search: bool
-    needs_news_search: bool
-    requires_fact_check: bool
-    task: str
+    report_sections: list[str]
 
 class ResearchSource(BaseModel):
     title: str
-    source: str
+    source: Provider
     url: str
     content: str
+    authors: list[str] = []
+    published_date: str | None = None
+    doi: str | None = None
+    score: float | None = None
+
+class ResearchFinding(BaseModel):
+    claim: str
+    summary: str
+    supporting_sources: list[ResearchSource] = []
+    conflicting_sources: list[ResearchSource] = []
+    overall_confidence: float
+
+class ComparisonOutput(BaseModel):
+    findings: list[ResearchFinding]
+
+class FactCheckOutput(BaseModel):
+    verified_findings: list[ResearchFinding]
+    issues: list[str]
+    overall_confidence: float
 
 class ResearchResponse(BaseModel):
     thread_id: str | None = None
     query: str
     report: str
     conversation_summary: str = ""
-
-class FactCheckOutput(BaseModel):
-    verified_sources: list[ResearchSource]
-    issues: list[str]
-    confidence: float

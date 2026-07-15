@@ -1,47 +1,44 @@
-from backend.graphs import state
 from backend.graphs.state import ResearchState
 from backend.logger import logger
-
-
-VALID_ACTIONS = {
-    "new_research",
-    "follow_up",
-    "compare",
-    "elaborate",
-    "rewrite",
-    "summarize",
-    "optimize",
-}
-
+from backend.constants import RESEARCH_ACTIONS, WRITER_ACTIONS
 
 async def router_agent(state: ResearchState) -> ResearchState:
     logger.info("Router Agent | Started")
 
     try:
-        action = state.get("action", "new_research")
+        plan = state.get("research_plan")
+        if plan is None:
+            raise ValueError("Research plan not found.")
+            
+        action = plan.action
+        state["action"] = action
 
-        if action not in VALID_ACTIONS:
-            raise ValueError(f"Invalid routing action: {action}")
+        if action in RESEARCH_ACTIONS:
+            if not plan.search_queries:
+                raise ValueError("Planner produced no search queries.")
 
-        logger.info(
-            "Router Agent | action=%s",
-            action,
-        )
-
-        if action in {
-            "new_research",
-            "follow_up",
-            "compare",
-            "elaborate",
-        }:
+            if not plan.providers:
+                raise ValueError("Planner selected no providers.")
             state["current_step"] = "research"
 
-        elif action in {
-            "rewrite",
-            "summarize",
-            "optimize",
-        }:
+        elif action in WRITER_ACTIONS:
             state["current_step"] = "writer"
+            
+        else:
+            raise ValueError(f"Invalid routing action: {action}")
+
+        if action in RESEARCH_ACTIONS:
+            logger.info(
+                "Router Agent | action=%s -> research | providers=%s | strategy=%s",
+                action,
+                ",".join(plan.providers),
+                plan.comparison_strategy,
+            )
+        else:
+            logger.info(
+                "Router Agent | action=%s -> writer",
+                action,
+            )
 
         return state
 

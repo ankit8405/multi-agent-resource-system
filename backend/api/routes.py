@@ -14,9 +14,15 @@ async def research_endpoint(request: ResearchRequest):
         request.thread_id,
         request.query,
     )
+
     try:
+        state = create_initial_state(
+            request.query,
+            request.previous_query,
+            request.conversation_summary,
+        )
         result = await research_graph.ainvoke(
-            create_initial_state(request.query, request.previous_query, request.conversation_summary),
+            state,
             config={
                 "configurable": {
                     "thread_id": request.thread_id,
@@ -24,10 +30,15 @@ async def research_endpoint(request: ResearchRequest):
             },
         )
 
+        logger.info(
+            "Research request completed | thread_id=%s",
+            request.thread_id,
+        )
+
         return {
             "thread_id": request.thread_id,
             "query": request.query,
-            "report": result["final_report"],
+            "report": result.get("final_report", ""),
             "conversation_summary": result.get("conversation_summary", "")
         }
     except Exception:

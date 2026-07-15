@@ -1,59 +1,114 @@
+import asyncio
+
 from backend.graphs.state import ResearchState
 from backend.logger import logger
-from backend.models import FactCheckOutput
+from backend.models import (
+    FactCheckOutput,
+    ResearchFinding,
+)
 from backend.prompts import FACT_CHECK_PROMPT
 from backend.services.openai_service import get_structured_llm
 
 
-async def fact_checker_agent(state: ResearchState) -> ResearchState:
+async def verify_findings(
+    findings: list[ResearchFinding],
+) -> FactCheckOutput:
     fact_checker_llm = get_structured_llm(FactCheckOutput)
-    logger.info("Fact Checker Agent | Started")
+    prompt = f"""
+{FACT_CHECK_PROMPT}
+
+Research Findings:
+
+{findings}
+"""
+
+    return await fact_checker_llm.ainvoke(prompt)
+
+
+async def fact_checker_agent(
+    state: ResearchState,
+) -> ResearchState:
+
+    logger.info("Fact Checker | Started")
 
     try:
-        research_sources = state.get("research_sources", [])
 
-        if not research_sources:
-            raise ValueError("No research sources available for verification.")
+        web_findings = state.get("web_findings", [])
+        academic_findings = state.get("academic_findings", [])
 
-        source_text = "\n\n".join(
-            f"""
-Title: {source.title}
+        tasks = {}
 
-Source: {source.source}
+        if web_findings:
+            tasks["web"] = verify_findings(web_findings)
 
-URL: {source.url}
+        if academic_findings:
+            tasks["academic"] = verify_findings(academic_findings)
 
-Content:
-{source.content}
-"""
-            for source in research_sources
+        if not tasks:
+            raise ValueError("No findings available for verification.")
+
+        outputs = await asyncio.gather(
+            *tasks.values(),
+            return_exceptions=True,
         )
 
-        prompt = f"""{FACT_CHECK_PROMPT}
+        results: dict[str, FactCheckOutput] = {}
 
-User Query:
-{state["query"]}
+        for name, output in zip(tasks.keys(), outputs):
 
-Research Sources:
+            if isinstance(output, Exception):
+                logger.warning(
+                    "Fact Checker | %s verification failed | %s",
+                    name,
+                    output,
+                )
+                continue
 
-{source_text}
-"""
+            results[name] = output
 
-        result: FactCheckOutput = await fact_checker_llm.ainvoke(prompt)
+        if not results:
+            raise ValueError("Fact Checker produced no verified findings.")
 
-        state["fact_check_result"] = result
-        state["research_sources"] = result.verified_sources
+        web_output = results.get("web")
+        academic_output = results.get("academic")
+
+        if web_output and web_output.issues:
+            logger.warning(
+                "Fact Checker | Web issues=%d",
+                len(web_output.issues),
+            )
+
+        if academic_output and academic_output.issues:
+            logger.warning(
+                "Fact Checker | Academic issues=%d",
+                len(academic_output.issues),
+            )
+
+        state["verified_web_findings"] = (
+            web_output.verified_findings
+            if web_output
+            else []
+        )
+
+        state["verified_academic_findings"] = (
+            academic_output.verified_findings
+            if academic_output
+            else []
+        )
+
         state["current_step"] = "writer"
 
         logger.info(
-            "Fact Checker Agent | Verified %d sources",
-            len(result.verified_sources),
+            "Fact Checker | verified_web=%d verified_academic=%d",
+            len(state["verified_web_findings"]),
+            len(state["verified_academic_findings"]),
         )
 
         return state
 
     except Exception as e:
-        logger.exception("Fact Checker Agent failed.")
+
+        logger.exception("Fact Checker failed.")
 
         state["errors"].append(str(e))
         state["current_step"] = "failed"

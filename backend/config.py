@@ -5,7 +5,7 @@ load_dotenv()
 
 class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPEN_AI_MODEL: str = os.getenv("OPEN_AI_MODEL", "gpt-4o-mini")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
     EXA_API_KEY: str = os.getenv("EXA_API_KEY", "")
 

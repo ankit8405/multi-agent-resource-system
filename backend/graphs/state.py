@@ -1,10 +1,7 @@
 from typing import TypedDict
+from backend.models import PlannerOutput, ResearchSource, FactCheckOutput, ResearchFinding
+from backend.constants import Action, WorkflowStep
 
-from backend.models import (
-    PlannerOutput,
-    ResearchSource,
-    FactCheckOutput,
-)
 
 
 class ResearchState(TypedDict, total=False):
@@ -13,8 +10,8 @@ class ResearchState(TypedDict, total=False):
     query: str
 
     # workflow
-    current_step: str
-    action: str
+    current_step: WorkflowStep
+    action: Action
 
     # summary
     previous_query: str
@@ -24,19 +21,18 @@ class ResearchState(TypedDict, total=False):
     research_plan: PlannerOutput | None
 
     # retrieval
-    tavily_results: list[ResearchSource]
-    exa_results: list[ResearchSource]
-    arxiv_results: list[ResearchSource]
-    semanticscholar_results: list[ResearchSource]
-    openalex_results: list[ResearchSource]
+    provider_results: dict[str, list[ResearchSource]]
 
-    # combined research
-    research_sources: list[ResearchSource]
+    # comparator
+    web_findings: list[ResearchFinding]
+    academic_findings: list[ResearchFinding]
 
     # fact checking
-    fact_check_result: FactCheckOutput | None
+    verified_web_findings: list[ResearchFinding]
+    verified_academic_findings: list[ResearchFinding]
 
     # current report
+    report: str
     final_report: str
 
     # errors
@@ -45,7 +41,8 @@ class ResearchState(TypedDict, total=False):
 def create_initial_state(
     query: str,
     previous_query: str = "",
-    conversation_summary: str = "") -> ResearchState:
+    conversation_summary: str = "",
+) -> ResearchState:
     return {
         "query": query,
         "previous_query": previous_query,
@@ -53,13 +50,12 @@ def create_initial_state(
         "action": "new_research",
         "current_step": "planning",
         "research_plan": None,
-        "tavily_results": [],
-        "exa_results": [],
-        "arxiv_results": [],
-        "semanticscholar_results": [],
-        "openalex_results": [],
-        "research_sources": [],
-        "fact_check_result": None,
+        "provider_results": {},
+        "web_findings": [],
+        "academic_findings": [],
+        "verified_web_findings": [],
+        "verified_academic_findings": [],
+        "report": "",
         "final_report": "",
         "errors": [],
     }

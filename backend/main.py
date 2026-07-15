@@ -21,7 +21,7 @@ async def on_startup():
         logger.info("Database initialized.")
         logger.info("Backend started successfully.")
     except Exception:
-        logger.exception("Failed to initialize research workflow.")
+        logger.exception("Failed to initialize backend.")
         raise
 
 @app.on_event("shutdown")

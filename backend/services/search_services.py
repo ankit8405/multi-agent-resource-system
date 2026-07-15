@@ -1,6 +1,4 @@
-from typing import Any
 import asyncio
-from typing import List
 from tavily import TavilyClient
 from exa_py import Exa
 from arxiv import Client as ArxivClient
@@ -10,6 +8,7 @@ from semanticscholar import SemanticScholar
 from backend.config import settings
 from backend.logger import logger
 from backend.models import ResearchSource
+from backend.constants import VALID_PROVIDERS
 import httpx
 
 _tavily_client = None
@@ -41,21 +40,23 @@ def get_arxiv() -> ArxivClient:
         _arxiv_client = ArxivClient()
     return _arxiv_client
 
-def reconstruct_openalex_abstract(inverted_index: dict) -> str:
+def reconstruct_openalex_abstract(
+    inverted_index: dict[str, list[int]] | None,
+) -> str:
     if not inverted_index:
         return ""
     try:
-        temp_abstract = []
+        ordered_words = []
         for word, positions in inverted_index.items():
             for pos in positions:
-                temp_abstract.append((pos, word))
-        temp_abstract.sort(key=lambda x: x[0])
-        return " ".join([word for pos, word in temp_abstract])
+                ordered_words.append((pos, word))
+        ordered_words.sort(key=lambda x: x[0])
+        return " ".join(word for _, word in ordered_words)
     except Exception as e:
         logger.warning("Failed to reconstruct abstract: %s", e)
         return ""
 
-def tavily_search(query: str, max_results: int = 5) -> List[ResearchSource]:
+def tavily_search(query: str, max_results: int = 5) -> list[ResearchSource]:
     logger.info("Searching Tavily | query=%s", query)
 
     try:
@@ -72,6 +73,7 @@ def tavily_search(query: str, max_results: int = 5) -> List[ResearchSource]:
                 source="tavily",
                 url=res.get("url") or "",
                 content=res.get("content") or "",
+                score=res.get("score")
             ))
         return results
 
@@ -79,14 +81,14 @@ def tavily_search(query: str, max_results: int = 5) -> List[ResearchSource]:
         logger.exception("Tavily search failed.")
         return []
 
-def exa_search(query: str, num_results: int = 5) -> List[ResearchSource]:
+def exa_search(query: str, max_results: int = 5) -> list[ResearchSource]:
     logger.info("Searching Exa | query=%s", query)
 
     try:
         client = get_exa()
         response = client.search_and_contents(
             query,
-            num_results=num_results,
+            num_results=max_results,
             text=True,
         )
 
@@ -100,6 +102,7 @@ def exa_search(query: str, num_results: int = 5) -> List[ResearchSource]:
                 source="exa",
                 url=getattr(res, "url", "") or "",
                 content=content,
+                score=getattr(res, "score", None) 
             ))
         return results
 
@@ -107,7 +110,7 @@ def exa_search(query: str, num_results: int = 5) -> List[ResearchSource]:
         logger.exception("Exa search failed.")
         return []
 
-def arxiv_search(query: str, max_results: int = 5) -> List[ResearchSource]:
+def arxiv_search(query: str, max_results: int = 5) -> list[ResearchSource]:
     logger.info("Searching ArXiv | query=%s", query)
 
     try:
@@ -124,6 +127,16 @@ def arxiv_search(query: str, max_results: int = 5) -> List[ResearchSource]:
                 source="arxiv",
                 url=res.entry_id or "",
                 content=res.summary or "",
+                authors=[
+                    author.name
+                    for author in res.authors
+                ],
+                published_date=(
+                    res.published.date().isoformat()
+                    if res.published
+                    else None
+                ),
+                doi=res.doi,
             ))
         return results
 
@@ -131,14 +144,14 @@ def arxiv_search(query: str, max_results: int = 5) -> List[ResearchSource]:
         logger.exception("arXiv search failed.")
         return []
 
-def semantic_scholar_search(query: str, limit: int = 5) -> List[ResearchSource]:
+def semantic_scholar_search(query: str, max_results: int = 5) -> list[ResearchSource]:
     logger.info("Searching Semantic Scholar | query=%s", query)
 
     try:
         client = get_semantic_scholar()
         response = client.search_paper(
             query=query,
-            limit=limit,
+            limit=max_results,
             fields=["title", "url", "abstract"]
         )
         
@@ -149,6 +162,16 @@ def semantic_scholar_search(query: str, limit: int = 5) -> List[ResearchSource]:
                 source="semanticscholar",
                 url=getattr(paper, "url", "") or "",
                 content=getattr(paper, "abstract", "") or "",
+                authors=[
+                    a.name
+                    for a in getattr(paper, "authors", [])
+                ],
+                published_date=(
+                    str(getattr(paper, "year"))
+                    if getattr(paper, "year", None)
+                    else None
+                ),
+                doi=getattr(paper, "doi", None),
             ))
         return results
 
@@ -156,7 +179,7 @@ def semantic_scholar_search(query: str, limit: int = 5) -> List[ResearchSource]:
         logger.exception("Semantic Scholar search failed.")
         return []
 
-async def openalex_search(query: str, per_page: int = 5) -> List[ResearchSource]:
+async def openalex_search(query: str, max_results: int = 5) -> list[ResearchSource]:
     logger.info("Searching OpenAlex | query=%s", query)
 
     try:
@@ -165,7 +188,7 @@ async def openalex_search(query: str, per_page: int = 5) -> List[ResearchSource]
                 "https://api.openalex.org/works",
                 params={
                     "search": query,
-                    "per_page": per_page,
+                    "per_page": max_results,
                 }
             )
             response.raise_for_status()
@@ -179,6 +202,13 @@ async def openalex_search(query: str, per_page: int = 5) -> List[ResearchSource]
                     source="openalex",
                     url=url_val,
                     content=reconstruct_openalex_abstract(work.get("abstract_inverted_index")),
+                    authors=[
+                        author["author"]["display_name"]
+                        for author in work.get("authorships", [])
+                        if author.get("author", {}).get("display_name")
+                    ],
+                    published_date=work.get("publication_date"),
+                    doi=work.get("doi"),
                 ))
             return results
 
@@ -187,32 +217,84 @@ async def openalex_search(query: str, per_page: int = 5) -> List[ResearchSource]
         return []
 
 
-async def search_all(query: str) -> dict[str, List[ResearchSource]]:
-    (
-        tavily_results,
-        exa_results,
-        arxiv_results,
-        semantic_results,
-        openalex_results,
-    ) = await asyncio.gather(
-        asyncio.to_thread(tavily_search, query),
-        asyncio.to_thread(exa_search, query),
-        asyncio.to_thread(arxiv_search, query),
-        asyncio.to_thread(semantic_scholar_search, query),
-        openalex_search(query),
+async def search_all(
+    query: str,
+    providers: list[str],
+    max_results: int = 5,
+) -> dict[str, list[ResearchSource]]:
+    tasks: dict[str, asyncio.Future] = {}
+
+    unknown = set(providers) - VALID_PROVIDERS
+
+    if unknown:
+        logger.warning(
+            "Unknown providers requested: %s",
+            ", ".join(sorted(unknown)),
+        )
+
+    if "tavily" in providers:
+        tasks["tavily"] = asyncio.to_thread(tavily_search, query, max_results)
+
+    if "exa" in providers:
+        tasks["exa"] = asyncio.to_thread(exa_search, query, max_results)
+
+    if "arxiv" in providers:
+        tasks["arxiv"] = asyncio.to_thread(arxiv_search, query, max_results)
+
+    if "semanticscholar" in providers:
+        tasks["semanticscholar"] = asyncio.to_thread(
+            semantic_scholar_search,
+            query, max_results
+        )
+
+    if "openalex" in providers:
+        tasks["openalex"] = openalex_search(query, max_results)
+
+    if not tasks:
+        raise ValueError("No valid providers selected.")
+    
+    results = await asyncio.gather(
+        *tasks.values(),
         return_exceptions=True,
     )
-
-    def safe(result: Any) -> List[ResearchSource]:
-        if isinstance(result, Exception):
-            logger.error("Search task failed: %s", result)
-            return []
-        return result
+    logger.info(
+        "Research Service | Raw results: %s",
+        [type(r).__name__ for r in results],
+    )
     
-    return {
-        "tavily": safe(tavily_results),
-        "exa": safe(exa_results),
-        "arxiv": safe(arxiv_results),
-        "semanticscholar": safe(semantic_results),
-        "openalex": safe(openalex_results),
+    provider_results: dict[str, list[ResearchSource]] = {
+        provider: []
+        for provider in providers
     }
+    failed_providers: list[str] = []
+
+    for provider, result in zip(tasks.keys(), results):
+        if isinstance(result, Exception):
+            logger.error("Research Service | %s search failed | %s", provider, result)
+            failed_providers.append(provider)
+            provider_results[provider] = []
+            continue
+
+        provider_results[provider] = result
+    
+    if len(failed_providers) == len(tasks):
+        raise RuntimeError(
+            f"All providers failed: {', '.join(failed_providers)}"
+        )
+
+    total_sources = sum(
+        len(sources)
+        for sources in provider_results.values()
+    )
+
+    logger.info(
+        "Research Service | query=%s | %s | total=%d",
+        query,
+        ", ".join(
+            f"{provider}={len(sources)}"
+            for provider, sources in provider_results.items()
+        ),
+        total_sources,
+    )
+
+    return provider_results

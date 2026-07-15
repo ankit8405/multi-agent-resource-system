@@ -1,5 +1,7 @@
 import asyncio
+import time
 from backend.graphs.state import ResearchState
+from backend.models import ResearchSource
 from backend.logger import logger
 from backend.services.search_services import search_all
 
@@ -13,58 +15,86 @@ async def researcher_agent(state: ResearchState) -> ResearchState:
         if plan is None:
             raise ValueError("Research plan not found.")
 
-        search_queries = plan.search_queries
-
-        if not search_queries:
+        if not plan.search_queries:
             raise ValueError("Planner produced no search queries.")
 
-        logger.info(
-            "Research Agent | Executing %d search queries",
-            len(search_queries),
+        search_queries = list(
+            dict.fromkeys(
+                q.strip()
+                for q in plan.search_queries
+                if q.strip()
+            )
         )
 
+        if not plan.providers:
+            raise ValueError("Planner selected no providers.")
+
+        semaphore = asyncio.Semaphore(5)
+        
+        async def search(query: str) -> dict[str, list[ResearchSource]]:
+            async with semaphore:
+                return await search_all(
+                    query,
+                    providers=plan.providers,
+                )
+        
+        start = time.perf_counter()
+
+        logger.info(
+                "Research Agent | Executing %d search queries",
+                len(search_queries),
+            )
+
         results = await asyncio.gather(
-            *(search_all(query) for query in search_queries),
+            *(search(query) for query in search_queries),
             return_exceptions=True,
         )
 
-        tavily_results = []
-        exa_results = []
-        arxiv_results = []
-        semanticscholar_results = []
-        openalex_results = []
+        provider_results: dict[str, list[ResearchSource]] = {
+            provider: []
+            for provider in plan.providers
+        }
 
         for result in results:
             if isinstance(result, Exception):
-                logger.warning("Research Agent | Search query failed | error=%s", result)
+                logger.warning(
+                    "Research Agent | Search query failed | error=%s",
+                    result,
+                )
                 continue
-            tavily_results.extend(result["tavily"])
-            exa_results.extend(result["exa"])
-            arxiv_results.extend(result["arxiv"])
-            semanticscholar_results.extend(result["semanticscholar"])
-            openalex_results.extend(result["openalex"])
 
-        total_sources = (
-            len(tavily_results)
-            + len(exa_results)
-            + len(arxiv_results)
-            + len(semanticscholar_results)
-            + len(openalex_results)
+            if not isinstance(result, dict):
+                logger.warning(
+                    "Research Agent | Invalid search response: %r",
+                    result,
+                )
+                continue
+
+            for provider, sources in result.items():
+                provider_results[provider].extend(sources)
+
+        total_sources = sum(
+            len(sources)
+            for sources in provider_results.values()
         )
 
         if total_sources == 0:
             raise ValueError("No research sources were retrieved.")
 
-        state["tavily_results"] = tavily_results
-        state["exa_results"] = exa_results
-        state["arxiv_results"] = arxiv_results
-        state["semanticscholar_results"] = semanticscholar_results
-        state["openalex_results"] = openalex_results
+        state["provider_results"] = provider_results
 
-        state["current_step"] = "reducer"
+        state["current_step"] = "comparator"
+
+        provider_stats = " ".join(
+            f"{provider}={len(sources)}"
+            for provider, sources in provider_results.items()
+        )
 
         logger.info(
-            "Research Agent | Finished | %d total sources", total_sources
+            "Research Agent | Finished | %s total=%d | %.2fs",
+            provider_stats,
+            total_sources,
+            time.perf_counter() - start,
         )
         return state
 
