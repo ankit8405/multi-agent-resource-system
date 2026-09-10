@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.python-version
+.venv
+.env
+.streamlit
+.DS_Store
+

@@ -1,0 +1,26 @@
+[project]
+name = "multi-agent-research-system"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4>=4.15.0",
+    "langchain>=1.4.0",
+    "langchain-community>=0.4.2",
+    "langchain-core>=1.6.2",
+    "langchain-openai>=0.3.0",
+    "langchain-tavily>=0.2.18",
+    "python-dotenv>=1.2.3",
+    "requests>=2.34.2",
+    "rich>=15.0.0",
+    "streamlit>=1.63.0",
+    "tiktoken>=0.14.0",
+]
+
+[tool.uv]
+# Application, not a distributable package: uv installs the dependencies but
+# skips building/installing the project itself. Run it with
+# `streamlit run app.py` or `python pipeline.py`.
+package = false

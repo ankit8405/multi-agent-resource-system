@@ -1,0 +1,11 @@
+langchain
+langchain-core
+langchain-community
+langchain_openai
+langchain_tavily
+beautifulsoup4
+requests
+python-dotenv
+tiktoken
+streamlit
+rich
