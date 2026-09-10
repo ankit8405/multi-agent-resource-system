@@ -1,8 +1,10 @@
-# Multi-Agent Research System
+# ResearchConclave
 
-A four-stage AI research pipeline built with [LangChain](https://python.langchain.com/)
+A four-stage mutli-agent AI research pipeline built with [LangChain](https://python.langchain.com/)
 and [Streamlit](https://streamlit.io/). Specialized agents collaborate to produce a
 cited research report on any topic.
+
+[ResearchConclave Live](http://3.219.124.98:8501/)
 
 ## Pipeline
 
