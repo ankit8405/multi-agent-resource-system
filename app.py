@@ -407,7 +407,7 @@ with col_input:
     with st.container(key="input_card"):
         topic = st.text_input(
             "Research Topic",
-            placeholder="e.g. Quantum computing breakthroughs in 2026",
+            placeholder="e.g. LLM Agents 2026",
             key="topic_input",
         )
         run_btn = st.button("⚡  Run Research Pipeline", use_container_width=True)
@@ -419,7 +419,7 @@ with col_input:
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.5rem;">
         <span style="font-family:'DM Mono',monospace;font-size:0.68rem;color:#605850;letter-spacing:0.1em;">TRY →</span>
     """, unsafe_allow_html=True)
-    examples = ["LLM Agents 2026", "Post-quantum cryptography", "Data center power demand"]
+    examples = ["Quantum computing breakthroughs in 2026", "Post-quantum cryptography", "Data center power demand"]
     for ex in examples:
         st.markdown(f"""
         <span style="
