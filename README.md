@@ -50,11 +50,6 @@ uv run python pipeline.py
 | File | Purpose |
 |------|---------|
 | `agents.py` | LLM setup, the search/reader agents and the writer/critic chains |
-| `tools.py` | `web_search` (Tavily) and `scrape_url` tools |
+| `tools.py` | `web_search` (Tavily) and `scrape_url` (BeautifulSoup) tools |
 | `pipeline.py` | CLI pipeline that runs all four steps |
 | `app.py` | Streamlit UI wrapping the same pipeline |
-| `__init__.py` | Package marker |
-
-> This project is configured as an **application** (`package = false` in
-> `pyproject.toml`), so `uv sync` installs dependencies without building the
-> project itself.

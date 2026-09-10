@@ -347,8 +347,8 @@ details summary {
 STEP_META = {
     "search": ("01", "Search Agent", "Gathers recent web information"),
     "reader": ("02", "Reader Agent", "Scrapes & extracts deep content"),
-    "writer": ("03", "Writer Agent", "Drafts the full research report"),
-    "critic": ("04", "Critic Agent", "Reviews & scores the report"),
+    "writer": ("03", "Writer Chain", "Drafts the full research report"),
+    "critic": ("04", "Critic Chain", "Reviews & scores the report"),
 }
 
 
