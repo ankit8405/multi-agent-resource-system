@@ -8,7 +8,7 @@ Streamlit app as a `systemd` service.
 
 ---
 
-## 0. Prerequisite — push the code
+## 1. Prerequisite — push the code
 
 The server pulls from GitHub, so the repo must be pushed — **including this
 `deploy/` folder** — and must **not** contain `.env` (it's gitignored, so secrets
@@ -18,7 +18,7 @@ stay local).
 git add deploy && git commit -m "Add EC2 deploy files" && git push
 ```
 
-## 1. Launch the instance (EC2 → Launch instance)
+## 2. Launch the instance (EC2 → Launch instance)
 
 | Setting | Value |
 |---------|-------|
@@ -30,14 +30,14 @@ git add deploy && git commit -m "Add EC2 deploy files" && git push
 | Advanced details | defaults |
 | **Security group** | `SSH (22)` from **My IP**; `Custom TCP 8501` from **Anywhere** (inbound). Outbound: default allow-all. |
 
-## 2. SSH in
+## 3. SSH in
 
 ```bash
 chmod 400 ~/.ssh/researchconclave-key.pem
 ssh -i ~/.ssh/researchconclave-key.pem ubuntu@<ec2-public-ip>
 ```
 
-## 3. One-command setup
+## 4. One-command setup
 
 ```bash
 git clone https://github.com/ankit8405/multi-agent-resource-system.git
@@ -48,7 +48,7 @@ bash deploy/setup-ec2.sh
 This installs packages, adds a 2 GiB swap file, creates the venv, installs
 requirements, and starts the `researchconclave` systemd service.
 
-## 4. Add secrets, then restart
+## 5. Add secrets, then restart
 
 ```bash
 printf 'OPENAI_API_KEY=sk-...\nTAVILY_API_KEY=tvly-...\n' > .env
@@ -56,7 +56,7 @@ chmod 600 .env
 sudo systemctl restart researchconclave
 ```
 
-## 5. Open the app
+## 6. Open the app
 
 ```
 http://<ec2-public-ip>:8501
@@ -66,45 +66,3 @@ http://<ec2-public-ip>:8501
 changing across stop/start.
 
 ---
-
-## Optional — Nginx + HTTPS (clean URL, no `:8501`)
-
-```bash
-sudo apt-get install -y nginx
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/researchconclave
-sudo ln -sf /etc/nginx/sites-available/researchconclave /etc/nginx/sites-enabled/researchconclave
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
-```
-Then open port 80/443 in the security group and (with a domain pointed at the
-instance):
-```bash
-sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
-```
-
----
-
-## Day-2 operations
-
-| Task | Command |
-|------|---------|
-| Live logs | `journalctl -u researchconclave -f` |
-| Restart | `sudo systemctl restart researchconclave` |
-| Deploy an update | `cd ~/multi-agent-resource-system && git pull && sudo systemctl restart researchconclave` |
-| Health check | `curl http://localhost:8501/_stcore/health` → `ok` |
-
-## Troubleshooting
-
-| Symptom | Cause |
-|---------|-------|
-| Connection times out | Port 8501 not open in security group, or app not bound to `0.0.0.0` |
-| `OPENAI_API_KEY not found` | `.env` missing, or wrong `WorkingDirectory` |
-| App dies on logout | Ran `streamlit` by hand instead of the systemd service |
-| Random kills / OOM | 1 GiB RAM exhausted — confirm swap is on (`free -h`) |
-| Live UI frozen behind proxy | Nginx missing websocket upgrade headers |
-
-## Cost note
-
-`t3.micro` is free for **12 months**; afterwards ~$8–10/month (billed 24/7
-regardless of traffic). An unattached Elastic IP incurs a small charge.
