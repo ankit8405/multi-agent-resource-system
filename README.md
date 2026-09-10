@@ -1,6 +1,6 @@
 # ResearchConclave
 
-A four-stage mutli-agent AI research pipeline built with [LangChain](https://python.langchain.com/)
+A four-stage multi-agent AI research pipeline built with [LangChain](https://python.langchain.com/)
 and [Streamlit](https://streamlit.io/). Specialized agents collaborate to produce a
 cited research report on any topic.
 
@@ -55,3 +55,44 @@ uv run python pipeline.py
 | `tools.py` | `web_search` (Tavily) and `scrape_url` (BeautifulSoup) tools |
 | `pipeline.py` | CLI pipeline that runs all four steps |
 | `app.py` | Streamlit UI wrapping the same pipeline |
+| `deploy/` | AWS EC2 deploy files: `setup-ec2.sh`, `nginx.conf`, and the full runbook |
+
+## Deployment
+
+Live app: **http://3.219.124.98:8501** (AWS EC2, static Elastic IP)
+
+The app runs on a **`t3.micro` Ubuntu 24.04 LTS** instance as a **systemd service**
+(`researchconclave`), so it starts on boot and restarts on crash.
+
+One-time setup on a fresh instance:
+
+```bash
+# push the deploy files first, then on the EC2 box:
+git clone https://github.com/ankit8405/multi-agent-resource-system.git
+cd multi-agent-resource-system
+bash deploy/setup-ec2.sh
+```
+
+Secrets live in `.env` on the server (never committed):
+
+```bash
+printf 'OPENAI_API_KEY=sk-...\nTAVILY_API_KEY=tvly-...\n' > .env
+chmod 600 .env
+sudo systemctl restart researchconclave
+```
+
+Day-to-day:
+
+| Task | Command |
+|------|---------|
+| Deploy an update | `cd ~/multi-agent-resource-system && git pull && sudo systemctl restart researchconclave` |
+| Restart | `sudo systemctl restart researchconclave` |
+| Logs | `journalctl -u researchconclave -f` |
+| Health check | `curl http://localhost:8501/_stcore/health` |
+
+Stop / start the VM from the EC2 console (**Instance state → Stop / Start**); the Elastic
+IP keeps the address stable across restarts. Inbound access to port `8501` is limited to
+an **IP allowlist** in the security group.
+
+See [`deploy/README.md`](deploy/README.md) for the full runbook (including optional
+Nginx reverse proxy + HTTPS).
