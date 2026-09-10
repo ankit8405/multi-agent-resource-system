@@ -59,7 +59,7 @@ uv run python pipeline.py
 
 ## Deployment
 
-Live app: **http://3.219.124.98:8501** (AWS EC2, static Elastic IP)
+[ResearchConclave Live](http://3.219.124.98:8501)
 
 The app runs on a **`t3.micro` Ubuntu 24.04 LTS** instance as a **systemd service**
 (`researchconclave`), so it starts on boot and restarts on crash.
@@ -81,8 +81,6 @@ chmod 600 .env
 sudo systemctl restart researchconclave
 ```
 
-Day-to-day:
-
 | Task | Command |
 |------|---------|
 | Deploy an update | `cd ~/multi-agent-resource-system && git pull && sudo systemctl restart researchconclave` |
@@ -91,8 +89,4 @@ Day-to-day:
 | Health check | `curl http://localhost:8501/_stcore/health` |
 
 Stop / start the VM from the EC2 console (**Instance state → Stop / Start**); the Elastic
-IP keeps the address stable across restarts. Inbound access to port `8501` is limited to
-an **IP allowlist** in the security group.
-
-See [`deploy/README.md`](deploy/README.md) for the full runbook (including optional
-Nginx reverse proxy + HTTPS).
+IP keeps the address stable across restarts.
